@@ -4,7 +4,7 @@ http://www.oblita.com/interception
 
 ### Example
 ```py
-#from interception import Interception, map_virtual_key
+#from interception import Interception, map_virtual_key, MouseFlags, MouseState, KeyState
 
 RUNNING = True
 
