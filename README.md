@@ -4,9 +4,10 @@ http://www.oblita.com/interception
 
 ### Example
 ```py
-#from interception import Interception, map_virtual_key, MouseFlags, MouseState, KeyState
+#from interception import Interception, MouseFilter, keyFilter, MouseFlags, MouseState, KeyState, MapVk, Vk, map_virtual_key
 
 RUNNING = True
+TIMEOUT = 2500 # ms
 
 interception = Interception()
 
@@ -14,7 +15,7 @@ interception.set_mouse_filter(MouseFilter.ButtonAll)
 interception.set_keyboard_filter(KeyFilter.All)
 
 while RUNNING:
-    device = interception.wait_receive(2500)
+    device = interception.wait_receive(TIMEOUT)
 
     if device:
         print(f'{device.get_hardware_id()}:')
@@ -27,6 +28,8 @@ while RUNNING:
         # Keyboard
         elif device.is_keyboard:
             vk = map_virtual_key(device.stroke.code, MapVk.ScToVk)
+            print('KeyStroke(code={0.code},vk={2},state={1},info={0.info})'
+                  .format(device.stroke, KeyState(device.stroke.state), vk))
             # escape = terminate
             if vk == Vk.Escape:
                 RUNNING = False
@@ -35,8 +38,6 @@ while RUNNING:
                 device.stroke.code = map_virtual_key(Vk.Y, MapVk.VkToSc)
             elif vk == Vk.Y:
                 device.stroke.code = map_virtual_key(Vk.X, MapVk.VkToSc)
-            print('KeyStroke(code={0.code},vk={2},state={1},info={0.info})'
-                  .format(device.stroke, KeyState(device.stroke.state), vk))
 
         device.send()
         print('-'*100)
