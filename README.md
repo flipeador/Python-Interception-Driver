@@ -3,7 +3,7 @@
 http://www.oblita.com/interception
 
 ### Example:
-```
+```py
 #from interception import Interception, MouseFilter, keyFilter, MouseFlags,\
 #    MouseState, KeyState, MapVk, Vk, map_virtual_key
 
