@@ -2,9 +2,10 @@
 
 http://www.oblita.com/interception
 
-### Example
-```py
-#from interception import Interception, MouseFilter, keyFilter, MouseFlags, MouseState, KeyState, MapVk, Vk, map_virtual_key
+### Example:
+```
+#from interception import Interception, MouseFilter, keyFilter, MouseFlags,\
+#    MouseState, KeyState, MapVk, Vk, map_virtual_key
 
 RUNNING = True
 TIMEOUT = 2500 # ms
@@ -28,7 +29,7 @@ while RUNNING:
         # Keyboard
         elif device.is_keyboard:
             vk = map_virtual_key(device.stroke.code, MapVk.ScToVk)
-            print('KeyStroke(code={0.code},vk={2},state={1},info={0.info})'
+            print('KeyStroke(sc={0.code:03X},vk={2:03X},state={1},info={0.info})'
                   .format(device.stroke, KeyState(device.stroke.state), vk))
             # escape = terminate
             if vk == Vk.Escape:
