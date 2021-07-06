@@ -4,7 +4,10 @@ from typing import Final
 from enum import Enum, IntEnum, IntFlag
 
 INVALID_HANDLE_VALUE: Final = HANDLE(-1).value
+
 WAIT_TIMEOUT        : Final = 0x00000102  # the time-out interval elapsed
+WAIT_FAILED         : Final = 0xFFFFFFFF  # error
+
 INFINITE            : Final = 0xFFFFFFFF
 
 IOCTL_SET_PRECEDENCE : Final = 0x222004
@@ -320,17 +323,32 @@ def is_keyboard(x:int):
 def is_mouse(x:int):
     return MIN_MOUSE <= x <= MAX_MOUSE
 
+def win_function(dll, name, restype, *args, **kwargs):
+    argtypes, argflags = [], []
+    for arg in args:
+        arg = [*arg]
+        argtypes.append(arg.pop(0))
+        argflags.append((1,) + tuple(arg))
+    prototype = WINFUNCTYPE(restype, *argtypes)
+    func = prototype((name, dll), tuple(argflags))
+    if 'errcheck' in kwargs:
+        func.errcheck = kwargs['errcheck']
+    return func
+
 # noinspection PyUnusedLocal
-def on_error_bool(result, func, args):
+def errcheck_bool(result, func, args):
     if not result:
         raise WinError()
     return result
 
-# hObject
-close_handle = windll.kernel32.CloseHandle
-close_handle.restype = BOOL
-close_handle.argtypes = [HANDLE]
-close_handle.errcheck = on_error_bool
+# noinspection PyUnusedLocal
+def errcheck_wait_failed(result, func, args):
+    if result == WAIT_FAILED:
+        raise WinError()
+    return result
+
+close_handle = win_function(windll.kernel32, 'CloseHandle', BOOL,
+    (HANDLE,'handle'), errcheck=errcheck_bool)
 
 class Handle:
     def __init__(self, handle):
@@ -345,62 +363,42 @@ class Handle:
         self.handle = 0
 
 # noinspection PyUnusedLocal
-def on_error_handle(result, func, args):
+def errcheck_handle(result, func, args):
     if not result or result == INVALID_HANDLE_VALUE:
         raise WinError()
     return Handle(result)
 
-# lpFileName dwDesiredAccess dwShareMode lpSecurityAttributes dwCreationDisposition dwFlagsAndAttributes hTemplateFile
-create_file = windll.kernel32.CreateFileW
-create_file.restype = HANDLE  # Error: INVALID_HANDLE_VALUE
-create_file.argtypes = [LPCWSTR, DWORD, DWORD, LPVOID, DWORD, DWORD, HANDLE]
-create_file.errcheck = on_error_handle
+create_file = win_function(windll.kernel32, 'CreateFileW', HANDLE,
+    (LPCWSTR,'filename'), (DWORD,'access',0), (DWORD,'share_mode',0), (LPVOID,'secutiry_attr',None),
+    (DWORD,'creation_disp',3), (DWORD,'flags',0), (HANDLE,'template_file',None),
+    errcheck=errcheck_handle)
 
-# lpEventAttributes bManualReset bInitialState lpName
-create_event = windll.kernel32.CreateEventW
-create_event.restype = HANDLE  # Error: 0
-create_event.argtypes = [LPVOID, BOOL, BOOL, LPCWSTR]
-create_event.errcheck = on_error_handle
+create_event = win_function(windll.kernel32, 'CreateEventW', HANDLE,
+    (LPVOID,'event_attr',None), (BOOL,'manual_reset',False), (BOOL,'initial_state',False), (LPCWSTR,'name',None),
+    errcheck=errcheck_handle)
 
-def device_io_control(handle, code, inbuffer=None, outbuffer=None):
+def device_io_control(handle, code, inbuff=None, outbuff=None):
     bytes_returned = DWORD()
-    if inbuffer is None: inbuffer_p, insize = None, 0
-    else: inbuffer_p, insize = cast(byref(inbuffer),LPVOID), sizeof(inbuffer)
-    if outbuffer is None: outbuffer_p, outsize = None, 0
-    else: outbuffer_p, outsize = cast(byref(outbuffer),LPVOID), sizeof(outbuffer)
-    device_io_control.func(handle, code, inbuffer_p, insize, outbuffer_p, outsize, bytes_returned, None)
+    if inbuff is None: inbuffer_p, insize = None, 0
+    else: inbuffer_p, insize = cast(byref(inbuff),LPVOID), sizeof(inbuff)
+    if outbuff is None: outbuffer_p, outsize = None, 0
+    else: outbuffer_p, outsize = cast(byref(outbuff),LPVOID), sizeof(outbuff)
+    device_io_control.func(handle, code, inbuffer_p, insize, outbuffer_p, outsize, bytes_returned)
     return bytes_returned.value
-# hDevice dwIoControlCode lpInBuffer nInBufferSize lpOutBuffer lpOutBuffer lpOutBuffer lpOverlapped
-device_io_control.func = windll.kernel32.DeviceIoControl
-device_io_control.func.restype = BOOL
-device_io_control.func.argtypes = [HANDLE, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPVOID]
-device_io_control.func.errcheck = on_error_bool
+device_io_control.func = win_function(windll.kernel32, 'DeviceIoControl', BOOL,
+    (HANDLE,'device'), (DWORD,'code'), (LPVOID,'inbuff',None), (DWORD,'insize',0), (LPVOID,'outbuff',None),
+    (DWORD,'outsize',0), (LPDWORD,'outbytes',None), (LPVOID,'overlapped',None),
+    errcheck=errcheck_bool)
 
-# noinspection PyUnusedLocal
-def errcheck_wait_for_multiple_objects(result, func, args):
-    if result == 0xFFFFFFFF:  # WAIT_FAILED
-        raise WinError()
-    return result
-# nCount *lpHandles bWaitAll dwMilliseconds
-wait_for_multiple_objects = windll.kernel32.WaitForMultipleObjects
-wait_for_multiple_objects.restype = DWORD
-wait_for_multiple_objects.argtypes = [DWORD, PHANDLE, BOOL, DWORD]
-wait_for_multiple_objects.errcheck = errcheck_wait_for_multiple_objects
+def wait_for_multiple_objects(handles, wait_all=False, milliseconds=INFINITE) -> int:
+    return wait_for_multiple_objects.func(len(handles), handles, wait_all, milliseconds)
+wait_for_multiple_objects.func = win_function(windll.kernel32, 'WaitForMultipleObjects', DWORD,
+    (DWORD,'count'), (PHANDLE,'handles'), (BOOL,'wait_all',False), (DWORD,'milliseconds',INFINITE),
+    errcheck=errcheck_wait_failed)
 
-# uCode uMapType
-map_virtual_key = windll.user32.MapVirtualKeyW
-map_virtual_key.restype = UINT
-map_virtual_key.argtypes = [UINT, UINT]
-
-# vKey
-get_key_state = windll.user32.GetKeyState
-get_key_state.restype = SHORT
-get_key_state.argtypes = [INT]
-
-# vKey
-get_async_key_state = windll.user32.GetAsyncKeyState
-get_async_key_state.restype = SHORT
-get_async_key_state.argtypes = [INT]
+map_virtual_key = win_function(windll.user32, 'MapVirtualKeyW', UINT, (UINT,'code'), (UINT,'type'))
+get_key_state = win_function(windll.user32, 'GetKeyState', SHORT, (INT,'vk'))
+get_async_key_state = win_function(windll.user32, 'GetAsyncKeyState', SHORT, (INT,'vk'))
 
 def is_key_pressed(vk, async_=True):
     if async_:
@@ -412,8 +410,8 @@ def is_key_toggled(vk):
 
 class Device:
     def __init__(self, device:int):
-        self.device = create_file(fr'\\.\interception{device-1:02}', 0x80000000, 0, None, 3, 0, None)
-        self.event = create_event(None, True, False, None)
+        self.device = create_file(fr'\\.\interception{device-1:02}', 0x80000000)
+        self.event = create_event(manual_reset=True)
         self.is_mouse = is_mouse(device)
         self.is_keyboard = is_keyboard(device)
         self.stroke = MouseStroke() if self.is_mouse else KeyStroke()
@@ -422,10 +420,8 @@ class Device:
         device_io_control(self.device.handle, IOCTL_SET_EVENT, zero_padded_handle)
 
     def __del__(self):
-        if hasattr(self, 'device'):
-            self.device.close()
-        if hasattr(self, 'event'):
-            self.event.close()
+        if hasattr(self, 'device'): self.device.close()
+        if hasattr(self, 'event'): self.event.close()
 
     def receive(self):
         device_io_control(self.device.handle, IOCTL_READ, None, self.stroke)
@@ -451,8 +447,8 @@ class Device:
 
     def get_hardware_id(self):
         hardware_id = create_unicode_buffer(250)
-        device_io_control(self.device.handle, IOCTL_GET_HARDWARE_ID, None, hardware_id)
-        return hardware_id.value
+        if device_io_control(self.device.handle, IOCTL_GET_HARDWARE_ID, None, hardware_id):
+            return hardware_id.value
 
 class Interception:
     _context: list[Device] = []
@@ -476,7 +472,7 @@ class Interception:
         self.set_filter(is_keyboard, filter)
 
     def wait(self, milliseconds=INFINITE):
-        ret: int = wait_for_multiple_objects(len(self._events), self._events, False, milliseconds)
+        ret = wait_for_multiple_objects(self._events, milliseconds=milliseconds)
         return None if ret == WAIT_TIMEOUT else self._context[ret]
 
     def wait_receive(self, milliseconds=INFINITE):
