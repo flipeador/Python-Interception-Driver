@@ -1,7 +1,7 @@
 from ctypes import *
 from ctypes.wintypes import *
 from typing import Final
-from enum import Enum, IntEnum, IntFlag
+from enum import IntEnum, IntFlag
 
 INVALID_HANDLE_VALUE: Final = HANDLE(-1).value
 
@@ -229,7 +229,7 @@ class Vk(IntEnum):
     Control            = 131072,  # The CTRL modifier key.
     Alt                = 262144,  # The ALT modifier key.
 
-class MouseState(Enum):
+class MouseState(IntEnum):
     Move             = 0x0000  # Estado del mouse: movimiento.
     LeftButtonDown   = 0x0001  # Estado del mouse: botón izquierdo hacia abajo (#1).
     LeftButtonUp     = 0x0002  # Estado del mouse: botón izquierdo hacia arriba (#1).
@@ -244,7 +244,7 @@ class MouseState(Enum):
     VerticalWheel    = 0x0400  # Estado del mouse: rueda vertical.
     HorizontalWheel  = 0x0800  # Estado del mouse: rueda horizontal.
 
-class KeyState(Enum):
+class KeyState(IntEnum):
     Down            = 0x0000  # Estado del teclado: tecla hacia abajo.
     Up              = 0x0001  # Estado del teclado: tecla hacia arriba.
     E0Down          = 0x0002  # Estado del teclado: E0 hacia abajo.
@@ -285,7 +285,7 @@ class KeyFilter(IntFlag):
     TermSrvShadow   = 0x0020  # Filtro del teclado: TERMSRV_SHADOW.
     TermSrvVkPacket = 0x0040  # Filtro del teclado: TERMSRV_VKPACKET.
 
-class MouseFlags(Enum):
+class MouseFlags(IntEnum):
     MoveRelative      = 0x000  # Mouse Flags: coordenadas relativas.
     MoveAbsolute      = 0x001  # Mouse Flags: coordenadas absolutas.
     VirtualDesktop    = 0x002  # Mouse Flags: coordenadas del escritorio virtual.
