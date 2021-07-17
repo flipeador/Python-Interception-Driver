@@ -24,13 +24,13 @@ while RUNNING:
         # Mouse
         if device.is_mouse:
             print('MouseStroke(flags={1},state={2},rolling={0.rolling},x={0.x},y={0.y},info={0.info})'
-                  .format(device.stroke, MouseFlags(device.stroke.flags), MouseState(device.stroke.state)))
+                  .format(device.stroke, MouseFlags(device.stroke.flags).name, MouseState(device.stroke.state).name))
 
         # Keyboard
         elif device.is_keyboard:
             vk = map_virtual_key(device.stroke.code, MapVk.ScToVk)
             print('KeyStroke(sc={0.code:03X},vk={2:03X},state={1},info={0.info})'
-                  .format(device.stroke, KeyState(device.stroke.state), vk))
+                  .format(device.stroke, KeyState(device.stroke.state).name, vk))
             # escape = terminate
             if vk == Vk.Escape:
                 RUNNING = False
